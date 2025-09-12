@@ -6,7 +6,6 @@ allow-lan: true
 mode: rule
 log-level: warning
 external-controller: 0.0.0.0:9090
-external-ui: dashboard
 secret: "1234567890"
 
 dns:
@@ -46,6 +45,10 @@ proxies:
     disable_mtu_discovery: true
     fast-open: true
     
+  - name: "proxy3"
+    type: socks5
+    server: 127.0.0.1
+    port: 7893    
     
 proxy-groups:
 
@@ -56,7 +59,7 @@ proxy-groups:
   - DIRECT
   - proxy1
   - proxy2
-
+  - proxy3
 
 - name: Auto - UrlTest
   type: url-test
@@ -65,7 +68,7 @@ proxy-groups:
   proxies:
   - proxy1
   - proxy2
-
+  - proxy3
      
 rules:
 - DOMAIN-SUFFIX,local,DIRECT
