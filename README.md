@@ -1,6 +1,6 @@
 # fastclash
 
-用wxpython写的clash程序管理界面
+用wxpython写的clash程序管理界面，可以额外运行naive，实现clash分流后的流量传到naive。
 
 # 界面介绍
 
@@ -17,10 +17,10 @@
 **面板密码**\
 指config.yaml中设置的密码\
 **测试url**\
-用来测试各个节点的延迟（http://www.google-analytics.com/generate_204）
+用来测试各个节点的延迟（http://www.google-analytics.com/generate_204）\
 **次程序**\
 用来运行clash官方不支持的协议，例如naiveproxy，次程序暴露一个socks5端口，主程序clash分流后将流量给到次程序的sock5端口
 **次程序运行命令**\
 比如有些协议的运行命令是程序名 -c 配置文件名，此时可以将 -c 填入运行命令中
 **怎样切换节点**\
-双击右下角表格中的节点名称，注意每次切换节点会杀死原有节点的所有链接。
+双击右下角表格中的节点名称，注意每次切换节点会杀死原有节点的所有链接
