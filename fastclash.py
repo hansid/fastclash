@@ -11,11 +11,12 @@ import re
 import threading
 import base64
 import io
+import json
 from concurrent.futures import ThreadPoolExecutor
 
 # ========== fastclash.py code refactored into a Panel ==========
 
-CONFIG_FILE = "config.txt"
+CONFIG_FILE = "gui.json"
 logo_base64_data = "iVBORw0KGgoAAAANSUhEUgAAAKAAAACZCAIAAAAn2KYfAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGYktHRAD/AP8A/6C9p5MAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAAHdElNRQfpCQoPERtN0s8+AAA1OklEQVR42u192Zcdx3nf91XfbfbBDGYGM1gJUiBIiqC4IFxMiQxJyaYWS7ZzkmOfJCcPOSfJiZM85TUvyTn5L5L35MGWJVlWbMumZFLcQFLcQGIjAM5gBrPfZe7aXV8euqvqq+r1DgYik6MSxLm3u7q6qn71bb+vui9KKQEAKPw/gi7oHjCF1InEs78tX3gh87HEvtvoZhT8LbBf7sKEU1hHw/+ifSSjUF6F35YvqijsGMDE/jtkK/srhNG/Ay9DtTlUH+5Gb4dteagOC4YoOX/vai8BACn6V7TxYVoethsH3nLxLoSTNlSfi5cS7/ydO013qZeqf3elEN6Vbt89P2Wo3gpjdIv36P8500tZX+/qoixS9t8BUv/Si7LBQ623A1+cd2mKKf3EFwLqwd6UWHPpLYvo9Be9ig++D2FkT4lY/gbDPO66Frlt7iSEI5KkqAsCypq7fUnwgZe7ZR0wuen44bu6vqOlllnBKNsi2kXXCN0zzGAmSoXG5vBcReJjLLxsSc34Ac4ygd1cXicyaLuENgvMA9lfCAAJKMmN1aCifTCNQyS+QDOnjACASgVGBUzRDBUGFagzDApF65iqNERocIBeCDnV0heEuxD1UUxtlp/JpxSxlHXWQneYifhiFb7pbx66Qy2vSMekt2kxCuheO8TdU26BmmcobtKhVKRS0fkaqrjL/OBK8QaLaGarwwVnYKiJGkbTOCqhQBFZJyNdr8Lkg0UCv2hB1904qMp8REX9CSWLxTVNwVaVqcYoXfjbkliG0IVf0iLuvIn/n8uXRM0MW5jEFwL47qVQhi5fnp58mQubpQIAD5NsgWHTXsN2vdgFd2lFFs/TkepDofq62QKVhx3aMCq6yO2Hoc5xyLh6qHLgGA+b1AtrFql/V1PweU6WCYURxJeAsv5tGbLkSXDoZSAeMJU4ZPmC19VdUjNFPDiezM0nWBJKYRVNdn6q+FUFe6PJ0KQKX7BrdeDrq9jGN8QwjaCi5LSYLXN2CsTBxEzlUDNdkKuKT99vXWVeNN3GJ8o5kj5jeVQlt8F264bjSlPf+2f5+b2IeC7rC8feiFFCQicrx4OpZ6LzBABAqBO90RRjXHFG2k7VyVQwxblo4n30g8FPL1xcr3cERjksRPA8EeoVAhC2i4xATj9D5hwBw4yIPisQAEXF88aqYnJs5OT87JFDU57nUbRBH82K/uIKEcmgKfvrNNimoAXkI8iwTwSgPiMBhp8JEBGIACEAIIj8Vb4lQ4skAQ2AfAACRPImS5NPeeUpM0HxBFRmJiMPYIw1gAAAQSB/duHyax8tCwowtBXCQ88D9IAIiBCkgjQGIhEgoB0lERGq5BcRIYJAKJdKc9PjT509/p3z9589diRnSPuHa6h8Awz6G7L1DrY/EINVIdtAQawha2SxTC+paQ0nJEoSkckW6U0aMvAOyZH7vfKUNXYqoMxUR/bJRQcyeP3itXevrV5e2bq5Ud9qdHpSIAqBCEBAARh07Rum8vHc6yAtDUQERAtTlX/77X/0e48/iOKgudVhklpENGh9ANs/9vo3EQZFLxuuNwQgSIySNyXLC1A75U19wytNueJe5OGScPnsO9mAiECy0x9s1FtXVzffvnLr7csrN9cbRIBa/6BI3TSTjC8mGTUMAn9uavS//osXH7vvBO3DmT+Ygv29T8T6/xT++l3h8EmSGAlqZ2Dkfqid8irz6I0jVvb5nJDSlgeQTQpVq5TB2k79z1778H/9/EK7H5TKFUAPUCRA5iTGE3KcTkCAABDI4FuPnvovf/xSuVz+QuJi6Xf82/+j1L5wN9ANeh2qHIP5P/AmHhHeqBr5HY+T9tHXWMRNRCQJUSzNzvybbz/zn//odyax099rAACImARbKjEtDxrbo4UghHjr0q0PbqwddF666LCDziWvc/HAvTvyB92N9T6eFcf/U2X6ac8bUfrvIFYxDg+weRIxNlIi8oT33Wef+NN/8hJ0Gp3ddQqCiAVzepzPrbvWGlHstAd//von3UH/Nw+xlH1qvomyfbAA9xv1nUuXu3im9pV/Xxo5uk9QM3tUDGCGB2ZUiGDE7zx7/sWnzrU211prnwWdFquhYLbgxvQWrQEL4b12cfndqysIeXkoHCKVWyCphbK3LLoHKr5EnbW1+qXLvX6teuZfedXZonvfnKHlxcFFtuxEu5HYHu6IQkNUbJqaqdD3r5RK33/u/PjYaK/VaK7d6De22ObY+DLhLCUlOln6S7Pd/eHrH3f7vYPd45LXmJTNd4RfD4EZrunEBqVsraw0btz0e73KwiMj0/dBnCXgncL0JZvXnUyAUzYMMdVJOqZzvKUzJxaPHZkjomDQb23c6u7cBpJWy1n7xxyYNbkDAvHNT2+9dXkZ051LnbUtCEVORg8x6G+IvXcApFI/dCcwE8m95eW95RWSErxSaeFxLI3E5hdtFRfauQI7NWPzkKeik+TKDlT0ZkOz6ghoYnRkbmYqrEhStrfXu7vrQNIyrE4Cw70R/x5hjChanf6PXv+w0+umxYLR46BD7lNIxwNk69fYXyWpOxzyTTJCeiiwiTqra3urq0QEQOhVK5Mn3WHEnm9wvhR0wsJ52K/HTxauwDRv+L0kcHy0SqY6tbc3eo0tazpQNWW6S85wHF4agIQQb1+69d61FXde9mEf8y/BwK9D820g30w08dWpZLrQ7bC3s9NaWSGpXFUhhFdJml7rKnRV9hBlSICZk5Q6RQQAEEjqDXwrtiXZ3r492Gsop5pNkLsmuViQ8w8RWl3/L974pNPrWUK8D3nNu4QAqPWR6FyNyERSRQmvsh2Fopqg3W59viwHPp8UolwegowSG36MQwLMAlSKUUrGsyPoDQb15p6Dvwz89vaa7PfynT9g0FvfEQCEV3rj0trbV24i7AvXwqOloEPNN1F2wwEz/awXOrElmtkVovba2qDdZosSZeAPuvX8eSDa9wOv+1LRbCe8I186TK439za263H/zO91OzvrQDJT5aBpHZgOVzdAxFan/6M3Psl3p++sBN3r2L4UxQakPSxwTYkeOaVIM6Lf3utsbTuHKRgMGjcKdWW/zMd+bXCYDiIbX1LqG+HW5vb2bjPRDeq1dvt79cz+6ulzdLieXxAIFy6vvnM1y52+w0IUUOMtEdRZmK+EmIx6MYbZstC28yVlZ2NTDgaxWZT9nasy6N+dAQAQ7Z9WJeLj4RqVAOD66kan040CZedCGXTrWxT4uXdwZ4NHV4jNrv/nr33c6XXvjhBj0F/D5nvGVXZcKssQ66mI1QECRL/T6W5vJ9wDgHav+L3tu5Pfpn1x0era9BNIJD+9sRoEEoUADLOIFvsy6Lb7rTzbk3VLAiKBeOHS8ntXP78b7DQBycY72L9NhDGXyhHQCGMLZisapN7OdtBLElNEbK/4zRt3aY0W4KL3pfq7/cGN1XXheUKIkOsCRBTsQXSS3ca29Ad5LSUxN3p/GEKzM/jRm592+z2AfZqotPsG/S2ovw4URApZS6obu5PR02RV1YtA9vvdrZ0UFwyhvxfsfGSN+EDA1tRQ/gwPeT9E2N3r3NrYFZ4Xya5S1IzXRL/XHbQbRboZO2YcV+F5b1xae+/aAVtiIpDNd7FzXblXoE2vwo/LMfMSEvpL/d1d33KenfPBYPMDGfTUfLNtlHAHzKhqIY+q1LFJ9t5M5voD4vr27tZOQ4hwi5ZQ4DrRuuw1d0kGMFzhSQtCFM1O/0dvXuoPDtBPQRk0afdXEPS4M8XMKpiDAJaRVvSW1tjkB52tLcpKuuNg93rQ301ZAXeycBEKJRsS8jp2LUQi4o+K3Fjb3Ov0MFLPNsbG7UK/2x60m4W2CJvi9IMEwtuXVj66eRvFgQmxbF8S7SuAwlAa0d00A6DYDt2rWJ3w26DV6jdbmTtsMNhb99urbIQH9JYnhHBLTWYNPvmJb3Nh+Z4o6QR07da6HwQq3aTqhWSmyUIhEfWaOyT9hAz/MKPYbXV//ObH/UHPzFFxyxJmwFj/JfXlzqvgt0MJJJIUx1gbZL4C+AeIWKruzjb5mfECIvSbfv1a2G3DJWByV7MyS3YJJyEJ4IyLk0yCs+J6g8GVz9e4uVV6OkRbfUBERL/b9rt7d+hWIOIvP7j+wfU13AdzydIS4QoMOjex+aECTBFJWv0CM71EJlbkkbpKs/ntdm+nnr1BDhGRfLnzMYG0ZjgBZhuYAsmGlGySblqJZKqEhf4ARUxtCOVOc+/m2rbneUZ0Q1yFhlgZbUSSstfYARm4UdCQAO+2uv/nwieBiq2HWDD2E6FEUu6+Af1NZUklxzIGM2jwLSYvEnLZ294O+lnOAYbbgwH83SvS3zMd13oPlcM1vBcZjitRgvlKsRNVbhsQ7oHmvPGtre2NnbqlmpnMGhus/gw6e35nLw+UpHszqhAR/+Gjm5+urKst2Pm46mZMVhEx6K3BzusgZQhkVCTznoz1VZKqa3L2jUj2e92d3WzfBURorIRsrQSddTMFegu56W1Wfie5/fR0ISl5jBDKaDLe/yvLG+1OD0PrHvn8GJlwlbhGo72BZNBr7artAJrKT0pkcEbJZgSFV9ps9f/yrU+Cgm45Je8elDu/gvYyERhQFdmvQ9xol6GMWV+KlkAIc2+37ndTqHIEFAKESuMLIbs7QeNqkv1zcUXd/2IlBrCOZZQFinmM8Ym3QLhxa933A4xwVCwH29+D6pyO9/rtlt9rmwAXuUaKMYUpw0OAv3//+mUtxGDplWSM7cRz0N+Um78E6Yf3YqAqOxzKq+oScZfKospJDvzu1jYkRkeI4epXug0Qkfxeb+dywps1TQjDrP4wFixBgpPlNTlH4u6x6g38a8u3KXouSqli7XBpnIVyBBEBUfqDXmM7EuLI8DNJTeiHk+SAUEtv7LZ+8vZlGQSMG2dGMaMQEEFQfxfaN5RyjGGsQTXLXadMXd5j0GwO4uRG6Gyqda5XfrjaZf0qyV5i39Lmf58As6yffQ+WBzXkFIAA4znttto317bCE2hUMegxKbDRUv2Ig3YrGPTMHluy75s7vvCk8F55/+qlldCdZpcUMFsUtOTWqxD0jYEINbWV4CcdNwFJ5mBz75dkEHR3dihg4muxeQjK+ir/ExAFNT+jON2ROOiCYBMkJRsS7J9dMidrY7e5U2+FQZGytgZjHgQzDgQRUQZ+v7Ubs41JQyEml8SWN0kBtLbV+OlbFyUFzCMtMBGIQesTbH4c+TM2YMa30m4UEbF1QLYl9lt7EbkRqSuBKECrLr3wWdgIQlB3y2+v5rM+lHk2NlPFs0mFFMT11Y29bk8IoT2ryORY6ho0zBH0gKEQy34v4Y5a2bo5O/UMlq0/X/n1lRvrm8aPyy0IUvb9zV9Qv6VbZoJrwWxsBzB3miK5JiKSMhRfRuQBIkS5Fm2wlC+iVR0N2oPGNadjNjM7jJZWC7RANsm9G9O8sWrXVzckKUTRLeryMAMhEAUKFEKEa1wGfpR+4Chmve2abbRQIZsQuLrT+et3PiWQBdc5AAbt61B/DwBJi6ZG2d6bZAur1D6zVidBr9dv7fHhQ4LeMt6nCZYgoMZFknzHlmOkinJYHLJ0gHXkTnbrCWtF8a7+4PrqOirA0CxSo5DNnbW7Ff5HIAD020056Bk3VXeE7R1RndfxgpusJcC/fufaytZuqA9zli8BURBsvgLdDT1klRs0WT+SkusJVz8zUe7VG7I/0BAqFSbchY62FUMEFLJxRfpNY4ZN5+24ILewKDodYOU46RSWPmhRDApdBGi0O5+v7wrP0+uTZ/sjZSSUcAOAtaIFopCDvh896hJZ45jFUZbQCJo2xkopeWJ5s/7qh1cLsHnhbqmbcvNVkspvJqOQDdusoNddIH1TrboB5KDfbzSNoUWMtjyEK1KgnlUEUCyHmgkhqLMedNdV1xAtNwKN+OZKsDbthR4+s/a+mpXvBjGI6zut9e1GKJJK7RhNZCJgcMQaldJGIui16tLv28s1jLos0K0dFI51Iggk/PSdKxv1RtyYxNY6BduvU3stUvjADC0BSCav0ctCYhgb8w/9Rivo9y22zp0G5WqpBBuE5lkgCkH9ZrB3MwMFphaKKurht+ww9sxKTQPcuL3ZaLUjzjmsYwam5FiBC3wLAFNdfq/bb9WJ30YhYf6af4m+BwnES59v/t2vL+cJMcr+ptz4BchAS6xhKJnbbDCOBVHRapBSDvq9RsNIrWBwMMhBT4Q2W2p9g+zL5mcEKc/DYYEj+wGYSZ1aPYhJgn3t1vpg4Ov8BDo78rUEM8FVh6MmERGA5qdGRiuepkrMBlri8mq4DPWNPUtC0h/4P3vz4k5rL0OICWGw/ZZsXo9E097TbjHPBlqGcdiIKoO9dtDrM6k1dtcsYmCLm7nZ0eQQyMaVZLoDAKIncgwq2RiHC6WIBCNmWYBIjAfB4LNbG8QusO5ueDkwDoYWde12CQQU333mwefOnZRS8nl0U3JckZo1ZrBHlBdvrL1+8XrGsOSgGdz+Ofhd5kZJHfKwfJH6v+R+Fu8JUBD0G029c0P7l0aNKackOm2iJovsC1rLctBIwC3NX0zXUGH9IgC72tJpJexmq9Nb3tj1hMd6ZPKCNvOq/jKCR7ljolIp33/y6A+eeXh6rCqlVC4VH4oWXE1VJvxDgoEv//KND1rtdtoq9+vvy52PiTCCVqoUAnDxVYvL0Fg2Fw0ARNKbCKRKeguVXGHaiek1JbjA0A2LENDbkp01UPdLxMws5VwnsuC2WT4UsEZm5ntjt7m5uydKnh6H6lH4MQq0lFep80s2WS3E5MT40fn5r5469vQDx6WUsYDbcEmxJARnpwmAhBC/vrr2xqc3ABNsmvTb/q2/on4zZCc0ciFbkRgFGQUdHpHKTqOg+Zdw/FiErjYuxrSZoAGEWtb6gw4yUECwF7SumZk1ShPdgKJYyFT8XZXEdaROjWl6enljp9nuCqFIKya2nIoFzVIz8DWlBwDzs9MLM1Oe8F4+f3ZirMpkSGVy3JXrJgMMO4HY7g5+8sZH3YTN8ThofBRsvB2yygpdSSzvyzA21AdApKh1EEVSUm2pMv9CafKEzoUmOLmOO2ltM2WmmuSgecM8kZalPQ8KYCta0d0FlRaIbNCV5dWBrxhgy2PUcHKxVgPm0R6AlHR0fmZybAQAzp0+9rXTS0HgGwgBXJHV5lEftWkHgfDry8vvxB5Tk9Qf3Pob2dkFApIhrpJCoVSKmhtavnKir5Igqgl46KnSyMnS1Cm9TdiYW+Bq2YkatKAbVYeIsnVTBs7LQCxOKyGreEcAp6DOI5mBH1xZ3pREevOG6zwbiTVIK+vMgiSAE4vzlVKZiEar1e89ef9IGZX7YyslxTbZR7RJjlI9CFDf6/74V+/39NYZAgAMmpeDtdcohJOJLM+BA5dp1b4b+8qAytPeoacRsTR5L5Yqjup0vGhbdRtbrAJIBETorsp+3RVaAkuvFC7DPOHvTrEiBhFa3d6N1Q1Dd8U0lPYptTvIHA3GcgPdc2RGA/bEmZMPnVqQoRCDLbi2j8vz8I5JFgivf3j9g+srel8tSb+/8rNgbz1EEByMmTHWhjZaB6AlW60wkjj1sDdyAgjE2EmsTIRjM6PWg+ZL2co6WGklFAJ6O7Kzak0fV6LDiC/kO1mYcI3+q6Oh7UZzu94yUasyqjy7aQxP1K4JhSMlRVCrVhZnD4UjIaKJkZHfO/9gpeSxuytYgatrYyDZ6ovACIX4ZxcuBjJ8pxP67eu95VcoCIxQOqAaO87YyhgFTVKSNyJmv4GiAgBebU6MzJix6UBIoE4XAjKGkrkfDHIh5B61Lhv1yBj5wsBqpKjYkw0xKXZutbxRb+x1dZ8ZzWWn9TXOtr8VFgKYnhg9NjfFYXru3FfO3bcUSLNjizS6EZBOj8gxmURSCPHq+9cur6yG/eqvvRrs3ozMrpRK2RqLbilnSWTUg7NHOhCTD5QmHw6/YHlCjC6h2YLL5ZVZXx3S8vBBx06IQFK2rpAcGHStkQ5X8ja+xz4xdWrK57c3BwGB2aBoaWsrwFdfDc+FUfYJAA4fmpocG1XaAQhoenzsu08+WPYiZaDWG0OXj1s5tmZdEoVGZH2n+ZNffSilBAJRO0TgaSqDRUfMElshkxFmy8MRJXH466I0Hhl2UfXGjihmIyKcWZ6fWVxE445F+VMl4oAoPOgsk990p90wJ8WwDRtLPe3qetszVBMIBFIG19e2SEsisvqAmpEzrrVe4dwoCYHCO318fmJ0xCSoEAHg6QfvfeDUYhDutALGP8d0slajzFZprjj4+dsXP1tdQ4Ty3NOlww8p/lnFSMacMxda6QCQcQUuceJ0aeYJM0GIYuJk+HpO259yTK/RYIqLBmWtQuw96m3L3qaDR7L45oGdAjCx6zlBSVG6UNUhBNjr9q7f3g6fJQTNwYKtn5nY89EaHgDRK5VPH1sslUr8jkQ0MzH23aceLAskGShnihkkS/iAi7UBSkogubqx85PXP5RSlqpzI/f9AMs17hWTNHusTHTE9LYd+ROgEHPPi8oc15ve2DEsVQ2oYWpcIKAAnYNhLlhId6AQkd2OZEGg35KdZRdJJ2lYAF3IVNGYcyy8n8CtRmt1qyGEp91BQASeB2UEtDM8bZcAoFot33dsIfG+zz1835mlQ9GDC9zi2kyTEw/z1F5Y/a/f+PDG7XVEqBx5rnT4IRn4JqjlbpRUR7TTzCQ4okRqR7zZp9FWaWJkCWtTJgNoh0O2xdWbXrRUMONFgeysOAqUUQZo8M6DWWRQzGlX2owoLG/u7rY6rgri2DkBr00CRMaVaGJs9OjcTPx2oRD/7pNfLXkej4L09kYt0yb5zgJiLdwCxcr69t9euAgAXmWmcvxlwJLeqhHCzDhLh5eWVnwMJGbPl0aWHM9WVGfE6FzoC6ukuEV9RGJtQDV7m8J3ays+i2jvBsnElwLEPmV6XqKQY4aurubQX1/b6vV9s7jCjlr4mYDP0JaWRUcimp0cnZuaSOvCC4+eue/4XKDxkHrrBXAVCgBgb69hShuI4G/e/vT2bh0BygvPiOnTpIQYmD+lo2GS6kbRTVTGqTJdmv8GomfNBZEojXnjR81KVmfVdwHRP7VLia14x+Wm9rIcNCynB7Ua5Bo6y+dKSRcixlQxWDaTBT5Syqsr61JKRVnoS7i75QbAOizQA5BSLs1Nj9cqlBTtEdHCoamXz59FGWiB1f/sJDzzkrS1Vl+F511dWf/5hY8AoDRypHbPy4Re5GFJjTGjt8AcNMZeBt6hR0vj96ubcnmpiPFTnMGwVrMGXkTiy2gss+IREISA/qbsrdkoWHxrQVfaBZj5RwaMtIAJAPZ6vZtrO9y6WEl+bY/VaXUQ4oHyscOT5VIpXaPgc1+7/+SRGRl5Qzqpo97awYAkIOtxMYa03x/88JULGzs7AkX16De96XtIRr8wQVJbX23d1f+MeyXBq5UWXhReNaGLAGLsJJaqaiqU7o2S//qgYOaZ22bGXAZt6iyzXIP2cqM/OjeelRLOYLJY2BVbLDraRdxu7q1Fb2vQ1/DFqxrg61eFSFwZlDzvxJG59FsBER09PPPi+a8ikBa3CEWpn+8DY4/tUEfHSwj06Wcrr7x3EYBKo8dqJ19G4UV+FrtO31Ur7VCUKQhw6mxp+qtp0ypGj2Jl3PI2DLTaqcbIPAuuGVl9gQCS2tcpen2rE404pGwyflF/7KOKrVULA20GWilE80zt6naj2fXVj6E4gbJeorxxnocAfYtarXJ8/lB6P6PWv/XE2flDE4HvO7DZ4a+Dq4U3Efl+8Be/fHen2RKI1ePfEpMnZOATSfXTTNrG88BXRU3olRf/sShNpk2uqB3G6nQUUBr1Kxicgkmtobec1YCI1LlJQSecIUMQ87xLBsSajEldAjx9waUhnGt1/bXVrd4geh+WjQXHh4VPWnFpsFEAwMzk2OLsFGQWIrpn4fDzj9xLUoYZAlsr2+yxukS9g0ETGuSVyh9fW/3l+5cAoDR2vHzshUg5h6oBmFKWPPcAQBInTpUPP53RSVGawpFFAJVYM9GtYQi4s6mjYdfhEgJ66zTY4XhYVE+xrIMNsNFO9qUpDQXS/2x1UxJpZ1Gjia4S1gyOm2YCBAI8ujAzOzmZ6GHxPgghvv3Uw7PTE9IJfBUOjKsmneU179lQkVWv3//pq++1uz2Bonb0JTE6L2XApB/ICLE0Cx2xvPicVz2SOiNEKKpi/LjeKIlCMDG1WVs3fNKfVRA1qMvebQ2upUgLF+Feg7EmojWdsF46vf7NtU0FLTIVraNfO0ZCI8rGHAMC4qmlhdFq1XQgCd1w3s8cX3rm3H2B7+s8QbQqXWi5DQYbZkKEdz757I2PrwBAaeLeyonnQ8/ZkGB6uUslxzLA0cXykRdcvtYuiCjGTqBX0jSkMVOKvNSSDMo6M5lmlo36UvtZsakYEmDmJieJkSt5BICIm432ykad9555Typr4vhqZg0YTscT4r6jcyhSgnI7z18ulb7z1EMToxWSkufyQGFi6CcHbxboIEFrr/O///ZXe+2251Vrp74nxhdIGjbD3UBJBESlxa+Xxk7lzq4YPYGlUT06/TAHKD3GvE4AZpV5cg0QASS0P7OeVnLQ2A9VSXHlbFJE/BYAsLHbqrfaupuM1mDAGg/COqihJqBatXzqyFxyj3m+DChcf+fuPXH+odPSytwZVMjobSILJA69RKA337984dJ1QKhMP1g99nXrvRzcnSYiKbE2U136JgoPMgoBEIjaEageinN2CmkzKSzWMIJr0Xzdz920EiMh8uGFjLfsmMWSsEMjLDfXt7oD33QUtJlRazbuKIImOqJeEtHkaG3+0ITbB9JpQ6dPUKtUv/c7j43UKkogtYOkgTTOFzHhZrleQsRma+9Hv7zQHww8rzJ6z/e80RkKpLNQFMayNPdYaeIrOVl3BAAS5WkxcsQQ78ifcrBpDRYcm8+gzBkIHGzI/nrsLlgQ3RSA+bVZjri8cXubQMSB1Chav12IXHZBU10k5dLM+OHJ0eT7mFBf2XIAADp/9uSjZ477gwHTwyxaVRupyBZldTY65ZW819779INrNwGgPPNw5dizRIF5u4qhLSWUR8vHvoVJ5EbC/Ikajh5Vhivmdgg9fBbicjOn6gEiBh3qrRRlrYoC7IAdPk6I5l9Yur5/c7OBoqT5VUAMX+jgMOzcdYx7jwS4ODddq9jb1TCpJxp0gvGR0e9//dFqpWQCQy2/DFUuuOqICf8Eiu1664evvB3IQIhq9eR3sDxO6jklI/BB4M08WJ55tKBrg0Lg6HEQHucsY/ylIeptMovVFAIgoA7bRZuEzp0BnDbbiLt73dWdduguRuCxoEjrHUAtx4bf4A6Y8MQ9Swue8GKuO/8Sn1p68oH7Hrr3uAy04ZRGQC2CwvhewGQ9YnIQfnHho6u31gGgPHOutPA1CgKVY1By75WrJ37XK08Xd17FyCJ6Fc7fmZQa8BiSvWWZr37ubXU+J9l1zXABaIsBHG9LjXF9Z3ersSc8D4EbXWEZYMswsyCK+YrVSvn4wnTmskpiSwmmJ8a//Ttf8wTqJ4IUalxwpQ56gEGrQj9CgPXtxo//4V1J0itNjJz+PlZGI/88UpmyPPuV6pFnh9KTonYEyhO2J2VoZsvPAsuRZuiGAbTAwboc1O1snv5j536GBtjOOThleWO30w/M60V4gKRQjHoP8bOmwsTYyIn5wwl3T3HgeXnhsQfuj3bzEDe3cQJOB0janTY0pwx+8ou3rq7cRoTqwtPlhUeAAsN1oFc5+W2vthAuByoGM5YPQeUQAJmlbBN5rsXVpLROp4KSab9OvVux2CbcAZfPZ2U+4a/+Oh5OeI9rq1sDX1rdcihJKybmGBsRJ4C56cnD04lpYE2QJXeQiA5PTX7rqUdQCMfcqhSiISxV7k/PDg+e4POVtb969W0g6ZWnR+55GcvVsBEZ+N7kyerSi3q95f6aWvTz66VRHFlQa5iJCVr6jG29i2ZGPUetBB0QZE929fYdLsh6+2YKdjk/bacdF955lZrrD/zljV3TnkkQMT7S8rAMM2vGA0iAR+enJ0dqFrsyDBX34hMPnlyaC4KARbpsv452pBVErjxLSVJKKX/66rsrG1uIWFt6obLwsN4hWzn2fGl0EajoG4oxzMWIihhZ4qyA8qu4YuNoOMkYfhVh73Min92fpRzINqOsl+GZvHd0OJCrM81O7+Zmk21tt6STRevaMJt+G2ODiIinjsyUSyW+qlj3ciaViI7Pz7z89Fc1yUxGRsHRz9qJBmatQ/SFEFdvrP7la+8AklebHbn3D7BcISm98fnqsReh4K8gsvkHQBw5DliyqQzLmVKcswmU2XOnwMJlAb1b5LfYTexJcTkD9ofyJFhXZ3MDALheb261euxRSXtVuuaWKRyl78PvJU/ctzgbhWLWwsKCgowgvnn+3PzMlHm6JAlaS6Id1IEQIJDyR69cuL3TQIDq4jdKs/eD9CvHnytNnQEqZnmdKK+6CN4I97MAwIZWp5iEEUDL8Q4vETjYkv2NqPdcq1JiB3TSCaDge7Is/QkAQJ9v1Fu9QG2r1hwNaLCN28UMjEtvAYxUy4bDcgEthDERnV5aePGpc7Z0mg034PjNOkJm2zUAQAhx+frKL975AABE9XDtxIvexMLIPb8vRCW3D4lFVGahPMF3R0QpJoCYmNpGFwC43kZE2Y3SSnyWdBLIwcs+kB8HJ1lHunZ7xw/IyK5LljK3yxDRwMBGQCSCw1NjRw5NJq6qqK0CYux53u8/+9jczGQQBOGzoIym0Fhau28sj0yNczDw/+znb+w0GgKweuybY4/86/L0Q0nkfNLn2BCwPIXVWYUc37IjtLOC3BKbY1wwwknzobdCrsNMbPGkqphhHh9VcUvf929u1CP1bkWrvK8KUcNfMs8rMhC4eHh6cnTErCHMvnvKGaIHTx17/okHuKul2Q1gwBrA7TiKIiHG9y5+9vO3PwCE0tiJsdN/YjZeKdfbfM7uLZAQNawtIMYw44ETQLLUAguXIfSzblD4G5mQIKYZodLQzwcjwu5e57Pb9SiVbQVFzOeK/mtwdUxRuA5OLMzUyhVTF+zrdDiQlwT1PO+7zz42PTlOet+GDoUkOelhZXrjpgd6/f4P//6txt6eQIGCuX7xhZYpvkAAWILaIjBPynK4nOSbY3ctpAEAsX9b+g22JvQ0Y1ZnCr2jgy9eQEDcqLc2G222Tcf0kiFq1qDB2GY8Sp537+Ks2s9VrKTupKBz997z9ccfCgK9mVJyncaMrva1E9oSKN69eO1XH3waDY3LiiOvGeKrl33tGIgyDxEtil7Pkoade6kWryAwqFN/LflemXMlsk/HWiIAuLm+2+75LivJpTnMOlhqme1cUb5GrVI+NndoOETTx1Mpl/7wuccnxkakZO8I1RlgJc4Z6IY93Wt3//bN9wPz25k8jB6uYHUevBHujfBwURldsNFVoaah6wEAkPrUW+HOCTjinjJveflgd3IRgK6v7w58aXxjDW3UP85I2+lCBjMRTIxU5qdTH2XIRdTtNdHXztzz2IP3BkGgoLVZDh0RZOZ0PU+cWjrieU5iP2Z4c/EmEOUZKE9x6sqB2Sb+dDUrG6HOEvRWiHJ/stXtW3o+2LGI6vMg9LCQxTBW+AuuKFtEh7a+ggDnp8cOjY/mcKnO7oOMagSjtdoPnj8/MlI1zjMYrCEbWAAAkJJOLM6//MyjyoFPv6LAysPSBFTnAMFa6Gqq2BYAdsjIbqz2YI1kJ0tqed/UvwJhUsRtRBc2u73l7b0wVCdLKAX7bzz8FZZkAwLAscOTo9VSvihYDFF2X+nZc2cef/B0EEiNrt6aBVAAYoSXnnnk1OIcJddE87dAiI6iCrWjhpIyBSyCyAKcuU7s/RaIiP629Hfz0bVLCsDG67NXHuJGvb3RGqDnMdiZ3UWutNlmD10tOi5QiFNHZjztqWajGwu2E6sRweT4xB+88FSlUo7m2MAMlIcuES3Oz37/G+djz8VrncQc+zxBolBwa8dBlGLEr5NV4y+HAzZv6pX2CAACZQt6t3R3isxJRrIBMeXale36Xj9A4UWmFAUhEggCJC2dCZ4XN9VIiNVq5URiGtjMUOxzqGXVfpoEjBEA6NmvPXDu7L2SP34CVEA9AwG89PSj9584GmfuEu5VrGB1EbwaQyVucbXRBXsdWGk6QETyoZeyizZlPFggDo5WkJ6ty6u7PR/MGkQGYYS3AGRPsmBcSyOgGB+tHZ+bGgLd+NQmjY0IZiYm/uilJyuVitmFVwRdotlDkz947onIvco2wMAo/kwzjeVZ8MZd8OKkh1banOVwB03QXybZS4h9wwGa0MvcLWfTHUL0C2kh82Q8LG1QLXmNekkOnMC0NyIgSoKZydGZ8ZgLnTpfSdOZbgiff/Shs6ePR8RWsfhGEjz96ENnTx5jIZbTgdxO2rMYznlpksozlv4wImFxfuwufB2A8bQBoX9bDhJ/VVuZqNicDfHGd0RodXo31+vGFiGmGF1BKEj9eh6ho7QFEB05ND6RnAYmk+PUHUC0V2YWfUNEh6cmfvD8ea+UuYfZvmRyYuyPXniqWimnyu6wcTACEKGoUXnBHFLUlUbYjS/0hCtPjAMggjoNNgp1TM1hWhyclH5H3GjsbTa7ijSP6xwwXbTDPm2ntatybHay7JUS7pJr3zDls93Ut54898gD9waBhAKFAF7++uPnz57OlHj+CEWxRgEQS1A9wjxWJriMx2AjMtNoVoA6iNSl/mqO9eDMLuW+Zcc+cmu70er6LlHOg6XoKNMqEasVqWhCQSBKCKfnJ1Cg6UryXZOwTOMO2VmSNH9o+k//2ctLR+ayMZaSCODFpx/9D//05VqlAqnREfdc2fzlFQQQ1QXAkkIPWfgbo50hhq47SEm9ZYr/AGe6UKSqaIoLMsnLa/VeYFMPaCtTiz/jdAyL6AGqldLS7HRkReOym0fzciyTPhAAkaSvP3L2v//Hf/7ko2e9UimQJKXUuSNJFEgpCY4vzf/pn3z3v/27P16cPZQT+1p3so+kyzwAQHmBvFEAMM6Uo/mM++IMM2EisL+qHhrORxcIShnnCIEFJBgE/sp2i8JtKGEX+LOmYdxGzIqQvRRUHSKYGa8sTo+Bfu60SMlIKGHKBYTPPvLAA6eWXnn34j+8e/HyzVubO41Bf4AoRkdrRxdmn3z4K7/31KNnji8iYhFPO9abzA5E6Q0U5ZmgNC1kK4mEUqbSQKtNr/nK7yT8TfJ3oTResI+ZPAMbMyI0ur3rm3soPEi8PXcAiZ8luzUkhNnJscnREXNJttZNLKk17ehBwuzk5B8+/9TvP/vEbmtvu9Hq9LoCvcmx0dmpifGRGgBGPwbs+OSYeZv8fDCYJemNUvkw9JfVJTGixHyMkVkupYIoW0F/DUaOFXT68ogk3QPErcbeeqOTtHlA9UlrSIx1jn8kOjY3OVotF/er4ndLnU+rXshfIRB5wjs8NXl4WkXe/BkXgCx049ooV+8Q7wAIUcHKHOyBZbz0B3Q+cKoySUVTH3o3iB4vOGdJADvLU324vrHbaA8ydoe4HSIEDCk7YpJNAvHU3ITneVTIw+VTNlSJWWZC9TvjaAem7EN80SXGw5QwP4kzAgCIHlSXICRl08UDHVAxfSH3PifZRW8ky6XPShc69aJVTp9v1PuFog7Hi9ZzEB2peOLE4SknxivYpOlSap0MpRr3yuwGLdEk+4R9neNNJ/aEfcbqInm15O0uJjDmV2X5mThYl3694IylJxvMBwKAIAhubDSGc0R0E4zSIoCxWmnxUF4aOK/fFrVFDnYI8bWDKfimSBQrMX/KlXiKrwSnZkRY8hVkHGdNSzLuKKsIlC3qb0CxUuD5YABEaHZ6N7baiAUlLgWccCflRHV2cmx/ajfGVyYyiJQQZmQ74Vy00m5qKiRp74wWCNCbIG+ahUih6kaXysifXiT0UCq6o0Ap8nQhAuJmq73e7N8ZwNGcHD00OlGr7ksZxGcQEypYnUyPrdEGDN2jKTUx6Xh24oHQG6HyPNvmGl5BmtIoILjhZQKJACT0bpL0IfMKylLRsbK81Wp0gyIAY97ZE4cnquVi3nvRojxhTDml740Qq4mx+tmxNrlqwxxMXbOIZagsheJk+FvXR8kuIeFPFBLFg1WSe5bvnTIxBQGma+v1np/qYSGCQPCi93mBSL9ryRPHD09l/TB1rIvuV0yS49Q7FnB2jepM8/rS9a+jLVJuggBQWQBRMRJi+Iwi6DIKkySCxMGW7G8nzE/sukITPQj8a2u7caWK0e+0Rfc3b/il6JRTCKBa9pZmJwvc0x4axD0pSvGa4vfUH7Sds70M691vlNdImqwmoctqYnmORC18m5q7Ty2nCCaHkV+Hsp2Q/Hc6VDBdiOEPT+7siZh+Jr3Jgk+7+olwGbs/EUyPlecnRwqMKmECreDEkTZKkvWEKzN+mBfzFkpS6Fyk2wQAIMrT4E3mSVy8CACJEABIAAkQRADTgHo3iILc6wvZwrXdvVtbTfVwjz3P8XVvcmrMcSACoCAIFiYmZ8ZGokURp/GzWSrMqBrKVpGJd8k/+x5OQSO1yVeQUbOJI4r+SyhGgtKs6C+res6QnBA5jhHndQmQoL9GQRe80ezRFgJ4arTyL79xhkBIonB3UCidROBLCiVbCBCIQNGbpqLeIJQEhu8DFED9gf+VpUOj1SrlTizHIlkTa5WbiyvFPuvlFUc6vTepETMmn9VwhDInqjD1/KB6j9nPZLWjDyIB2hy/APWT4AQCIfwFQQneRJ6LBQCAUuaRUzpXxKc1YRgZk2tdErPlGsYUM2bdN0mUElRKkZKNaOKoMKsDbp/jjRd7kJyPN64S+AaMxLs7t0wFmOJjdLvrnuJMHtcoGL8qHTB3sjLmREtwRiczr81CF+yux8dOyQBb6KYvSneuEzsAkKz3WbU8Gc5OF8YbxSTkyTrpfE7wzAoOG9L3V9h5qqyZSmx/qEWQVh8z1TK/3J6L1BWJeUg7Zwp5eikAa4fYzdkmZm7RwjhtVl38eb8pWXxTl0KqKk+ZcogtrLScH6Y3QikYFOlFOqGWOWVJp3KzlVbJdrKKBJq5Z3Nbw9SKCYPJVln24WTTkFaKe+CZN9WNJcqCcyRvJpKqDccWx2ywO4RsHyR31vI74H5MoXMza1LmFZjZIGWike5U3iErT8XaKWhz0ostwclkTuLE53bNUSnpa9UVyETbnOJSYvYUoF01bYYoXQFmcI/phTJlcShdi4WlPKUkMlmUqV94NUi/P+ffi/WRIBmueJOFTIezLmM9Sc03pLeHBeYDimnagjSl08fh1UbJbWWIKcPYgkysljZQTCcxCg8slXfMbMjSC3Z9zZkMNZVUDLA8Fy3/8iELIaQ9W8DXexqEkK7NcseBpla8rqaZhh4S2qsrKT1yF+ZxOGr67jUev5QcJ4u/Qi3bNXFOF/F63GbTYlMedGUoc7durBsp7HZBZ7lgzS99YTaYE8TZeq7IQV6KGHRTM6+2Q7FgmnXE/evEYQ3k3Sh3osxZYSoabYyLxr5o16Xkiobc51Y3Zq25USxI6uVUGAaoNMG986BoqD7s159KLDEniw81RwLiZGGmD2y6XyCAjscS1iynMV934MgMRYEU10lDVU70fLLr75OLRkdbOmON+77ILsueY0qBBZJhS06npA9r38xAcdqhuAIvvtSGXZRxPZhSMqjKPKo9YVYovT4kYlV0fMPZ5gJpDKsiW1jZHEV4ujhHULCkpSX3Z6Tskpvwj0dKiZRQRtoHrOlzK8eyTqmJn+JSE7tvfv2CNynQh33LonOTYfOKKSMr8hIWDWH20s07mKxgKb+NtE6lVrZXDOW2pSpRZnu5w6XEmsNnn4ovkTx0oZgEY5JGTaN2UxJ85jDa1TKlh+LfMa8OpCqDjMYoU9aH8qTcOXC0V6zlYVNxBbuklHypQHPZBFb8tknqMXlpF9eNrIkD1KIF/VuTHS9eP9YjzKwz1AiK6zlI27ITz6FZoQ0lL0wHX8oc1VAm9c7rJHZjf6J5UIVbkpjncFAl6xUOmXmz9EnNlfOCgy+uvopEOHdSDrzloRyrO+x7/q7K5P7FZvSgOnf3JObLU36DXPfwD4EN5anvo9yNYX8Jkwe/qc4M/ZsNVjbpzkj54ciAwr8bmN4EDXfL9J7cafkNLrX/CxppfzH94C/rAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDI1LTA5LTEwVDE1OjE2OjUwKzAwOjAwGqA0KgAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyNS0wOS0xMFQxNToxNjo1MCswMDowMGv9jJYAAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjUtMDktMTBUMTU6MTc6MjcrMDA6MDAcSPHgAAAAAElFTkSuQmCC"
 
 
@@ -165,39 +166,58 @@ class FastClashPanel(wx.Panel):
 
 
     def on_path_change(self, event):
-        program = self.file_picker1.GetPath()
-        folder = self.dir_picker.GetPath()
-        url = self.url_text_ctrl.GetValue()
-        program2 = self.other_file_picker1.GetPath()
-        config2 = self.other_file_picker2.GetPath()
-        configrun2 = self.other_url_text_ctrl.GetValue()
+        # 从 UI 控件获取当前值
+        config_data = {
+            "program": self.file_picker1.GetPath(),
+            "folder": self.dir_picker.GetPath(),
+            "url": self.url_text_ctrl.GetValue(),
+            "program2": self.other_file_picker1.GetPath(),
+            "config2": self.other_file_picker2.GetPath(),
+            "configrun2": self.other_url_text_ctrl.GetValue(),
+            "secret": "",  # 从旧配置中读取并保留
+            "testurl": ""  # 从旧配置中读取并保留
+        }
+
+        # 尝试读取旧的配置以保留 secret 和 testurl
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                lines = f.read().splitlines()
-                secret = lines[6] if len(lines) > 6 else ""
-                testurl = lines[7] if len(lines) > 7 else ""
-        except (IOError, IndexError):
-            secret = ""
-            testurl= ""
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            f.write(f"{program}\n{folder}\n{url}\n{program2}\n{config2}\n{configrun2}\n{secret}\n{testurl}\n")
+                old_config = json.load(f)
+                config_data["secret"] = old_config.get("secret", "")
+                config_data["testurl"] = old_config.get("testurl", "")
+        except (IOError, json.JSONDecodeError):
+            # 文件不存在或格式错误，忽略
+            pass
+
+        # 写入新的配置到 JSON 文件
+        try:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(config_data, f, indent=4, ensure_ascii=False)
+        except IOError as e:
+            print(f"写入配置文件时出错: {e}")
 
     def load_config(self):
+        """从 JSON 文件加载配置并设置 UI 控件的值。"""
         if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                lines = f.read().splitlines()
-                if len(lines) > 0 and os.path.exists(lines[0]):
-                    self.file_picker1.SetPath(lines[0])
-                if len(lines) > 1 and os.path.exists(lines[1]):
-                    self.dir_picker.SetPath(lines[1])
-                if len(lines) > 2 :
-                    self.url_text_ctrl.SetValue(lines[2])
-                if len(lines) > 3 and os.path.exists(lines[3]):
-                    self.other_file_picker1.SetPath(lines[3])
-                if len(lines) > 4 and os.path.exists(lines[4]):
-                    self.other_file_picker2.SetPath(lines[4])           
-                if len(lines) > 5 :
-                    self.other_url_text_ctrl.SetValue(lines[5])
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    config_data = json.load(f)
+
+                # 根据配置数据设置 UI 控件的值
+                if "program" in config_data and os.path.exists(config_data["program"]):
+                    self.file_picker1.SetPath(config_data["program"])
+                if "folder" in config_data and os.path.exists(config_data["folder"]):
+                    self.dir_picker.SetPath(config_data["folder"])
+                if "url" in config_data:
+                    self.url_text_ctrl.SetValue(config_data["url"])
+                if "program2" in config_data and os.path.exists(config_data["program2"]):
+                    self.other_file_picker1.SetPath(config_data["program2"])
+                if "config2" in config_data and os.path.exists(config_data["config2"]):
+                    self.other_file_picker2.SetPath(config_data["config2"])
+                if "configrun2" in config_data:
+                    self.other_url_text_ctrl.SetValue(config_data["configrun2"])
+
+            except (IOError, json.JSONDecodeError) as e:
+                print(f"读取配置文件时出错: {e}")
 
     def log_message(self, msg):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -248,6 +268,18 @@ class FastClashPanel(wx.Panel):
 
     def on_run(self, event):
         self.run_program()
+        
+        # 定义一个刷新函数
+        def delayed_refresh():
+            # 通过父窗口获取webtest_panel实例并调用其on_refresh方法
+            parent_frame = self.GetParent().GetParent()
+            if hasattr(parent_frame, 'webtest_panel'):
+                parent_frame.webtest_panel.on_refresh(None)
+
+        # 设置一个2秒的延迟后执行刷新，确保Clash API已经启动
+        # 如果您的程序启动较慢，可以适当增加延迟时间
+        threading.Timer(1.0, delayed_refresh).start()
+        self.log_message("将在1秒后自动刷新节点列表...")
 
     def auto_run(self):
         self.run_program()
@@ -289,6 +321,11 @@ class FastClashPanel(wx.Panel):
             self.log_message(f"未发现正在运行的 {exe_name} 进程。")
             
         self.update_program_status()
+        # 添加刷新节点列表的操作
+        parent_frame = self.GetParent().GetParent()
+        if hasattr(parent_frame, 'webtest_panel'):
+            parent_frame.webtest_panel.on_refresh(None)
+        self.log_message("已触发刷新节点列表操作。")
 
     def update_program_status(self):
         program = self.file_picker1.GetPath()
@@ -452,41 +489,75 @@ class WebTestPanel(wx.Panel):
         self.delay_btn.Bind(wx.EVT_BUTTON, self.on_delay)
         self.grid.Bind(gridlib.EVT_GRID_CELL_LEFT_DCLICK, self.on_select_node)
 
+        # Setup thread pool for delay checks
+        self.executor = ThreadPoolExecutor(max_workers=5)
+
+        self.proxy_data = {}
+        self.current_group_name = ""
+        self.executor_wait_counter = 0  # 新增：初始化计数器
+        self.tasks_to_run = 0         # 新增：用于存储需要运行的任务总数
+        
+        self.load_secret_from_config()
+
 
     def on_path_change(self, event):
-        """Save secret to config.txt when the text box changes"""
+        """
+        Save secret and testurl to a JSON config file when the text box changes.
+        """
         secret = self.clash_secret_text_ctrl.GetValue()
         testurl = self.clash_testurl_text_ctrl.GetValue()
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                lines = f.read().splitlines()
-                program = lines[0] if len(lines) > 0 else ""
-                folder = lines[1] if len(lines) > 1 else ""
-                url = lines[2] if len(lines) > 2 else ""
-                program2 = lines[3] if len(lines) > 3 else ""
-                config2 = lines[4] if len(lines) > 4 else ""
-                configrun2 = lines[5] if len(lines) > 5 else ""
-        except (IOError, IndexError):
-            program = ""
-            folder = ""
-            url = ""
-            program2 = ""
-            config2 = ""
-            configrun2 = ""
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            f.write(f"{program}\n{folder}\n{url}\n{program2}\n{config2}\n{configrun2}\n{secret}\n{testurl}\n")
 
-    def load_secret_from_config(self):
-        """Load secret from config.txt on startup"""
+        data = {}
+        # Try to read the existing JSON file
         if os.path.exists(CONFIG_FILE):
             try:
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                    lines = f.read().splitlines()
-                    if len(lines) > 6:
-                        self.clash_secret_text_ctrl.SetValue(lines[6])
-                    if len(lines) > 7:
-                        self.clash_testurl_text_ctrl.SetValue(lines[7])
-            except (IOError, IndexError):
+                    data = json.load(f)
+            except (IOError, json.JSONDecodeError):
+                # If file is unreadable or malformed, start with an empty dict
+                print(f"Warning: Could not read {CONFIG_FILE}, creating a new one.")
+                data = {}
+
+        # Update the specific values
+        data["secret"] = secret
+        data["testurl"] = testurl
+        
+        # Keep other existing values, or set to empty string if they don't exist
+        # This is equivalent to the original code's line-based logic
+        data["program"] = data.get("program", "")
+        data["folder"] = data.get("folder", "")
+        data["url"] = data.get("url", "")
+        data["program2"] = data.get("program2", "")
+        data["config2"] = data.get("config2", "")
+        data["configrun2"] = data.get("configrun2", "")
+
+        # Write the updated dictionary back to the JSON file
+        try:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+        except IOError:
+            print(f"Error: Could not write to {CONFIG_FILE}.")
+
+
+
+    def load_secret_from_config(self):
+        """
+        Load secret and testurl from the JSON config file on startup.
+        """
+        if os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    
+                    # Use .get() with a default value to safely access keys
+                    secret = data.get("secret", "")
+                    testurl = data.get("testurl", "")
+                    
+                    self.clash_secret_text_ctrl.SetValue(secret)
+                    self.clash_testurl_text_ctrl.SetValue(testurl)
+                    
+            except (IOError, json.JSONDecodeError) as e:
+                print(f"Error loading config: {e}")
                 pass
 
 
@@ -615,17 +686,21 @@ class WebTestPanel(wx.Panel):
         self.delay_btn.Disable()
         self.log_message("开始测试所有节点延迟...")
         self.executor_wait_counter = 0  # Reset the counter
-        if self.grid.GetNumberRows() == 0:
+
+        num_rows = self.grid.GetNumberRows()
+        self.tasks_to_run = num_rows  # 保存需要执行的任务总数
+
+        if num_rows == 0:
             self.delay_btn.Enable()
             self.log_message("没有节点可供测试。")
             return
             
-        for row in range(self.grid.GetNumberRows()):
+        for row in range(num_rows):
             node_name = self.grid.GetCellValue(row, 0)
             self.grid.SetCellValue(row, 1, "正在测试...")
         wx.Yield()  # Add this line to force UI refresh
         
-        for row in range(self.grid.GetNumberRows()):
+        for row in range(num_rows):
             node_name = self.grid.GetCellValue(row, 0)
             self.executor.submit(self._check_node_delay, row, node_name)
     
@@ -660,8 +735,10 @@ class WebTestPanel(wx.Panel):
     def increment_counter(self):
         """Increments the counter and checks if all tasks are complete."""
         self.executor_wait_counter += 1
-        if self.executor_wait_counter >= self.grid.GetNumberRows() and self.grid.GetNumberRows() > 0:
+        # 使用保存的任务总数来判断，而不是实时的Grid行数
+        if self.executor_wait_counter >= self.tasks_to_run and self.tasks_to_run > 0:
             self.delay_btn.Enable()
+            self.log_message("所有节点延迟测试完成。") # 添加一条完成日志
     
     def on_select_node(self, event):
         """双击节点 -> 切换"""
