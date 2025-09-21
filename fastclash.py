@@ -12,6 +12,7 @@ import threading
 import base64
 import io
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 # ========== fastclash.py code refactored into a Panel ==========
@@ -175,7 +176,8 @@ class FastClashPanel(wx.Panel):
             "config2": self.other_file_picker2.GetPath(),
             "configrun2": self.other_url_text_ctrl.GetValue(),
             "secret": "",  # 从旧配置中读取并保留
-            "testurl": ""  # 从旧配置中读取并保留
+            "testurl": "",  # 从旧配置中读取并保留
+            "speedurl": "",  # 从旧配置中读取并保留
         }
 
         # 尝试读取旧的配置以保留 secret 和 testurl
@@ -184,6 +186,7 @@ class FastClashPanel(wx.Panel):
                 old_config = json.load(f)
                 config_data["secret"] = old_config.get("secret", "")
                 config_data["testurl"] = old_config.get("testurl", "")
+                config_data["speedurl"] = old_config.get("speedurl", "")
         except (IOError, json.JSONDecodeError):
             # 文件不存在或格式错误，忽略
             pass
@@ -430,11 +433,19 @@ class WebTestPanel(wx.Panel):
 
         # 测试url
         hbox_testurl = wx.BoxSizer(wx.HORIZONTAL)
-        hbox_testurl.Add(wx.StaticText(self, label="测试url:"), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+        hbox_testurl.Add(wx.StaticText(self, label="延迟url:"), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
         self.clash_testurl_text_ctrl = wx.TextCtrl(self)
         self.clash_testurl_text_ctrl.Bind(wx.EVT_TEXT, self.on_path_change)
         hbox_testurl.Add(self.clash_testurl_text_ctrl, 1, wx.EXPAND | wx.ALL, 5)
         vbox.Add(hbox_testurl, 0, wx.EXPAND)
+        
+        # 测速url
+        hbox_speedurl = wx.BoxSizer(wx.HORIZONTAL)
+        hbox_speedurl.Add(wx.StaticText(self, label="测速url:"), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+        self.clash_speedurl_text_ctrl = wx.TextCtrl(self)
+        self.clash_speedurl_text_ctrl.Bind(wx.EVT_TEXT, self.on_path_change)
+        hbox_speedurl.Add(self.clash_speedurl_text_ctrl, 1, wx.EXPAND | wx.ALL, 5)
+        vbox.Add(hbox_speedurl, 0, wx.EXPAND)
         
         # New: Proxy Group Selector
         hbox_selector = wx.BoxSizer(wx.HORIZONTAL)
@@ -456,17 +467,21 @@ class WebTestPanel(wx.Panel):
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.refresh_btn = wx.Button(self, label="刷新节点列表")
         self.delay_btn = wx.Button(self, label="刷新延迟")
+        self.speed_btn = wx.Button(self, label="测速")
         self.refresh_btn.SetMinSize((-1, 50))
         self.delay_btn.SetMinSize((-1, 50))
+        self.speed_btn.SetMinSize((-1, 50))
         btn_sizer.Add(self.refresh_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.delay_btn, 0, wx.ALL, 5)
+        btn_sizer.Add(self.speed_btn, 0, wx.ALL, 5)
         vbox.Add(btn_sizer, 0, wx.EXPAND)
 
         # Grid
         self.grid = gridlib.Grid(self)
-        self.grid.CreateGrid(0, 2)
+        self.grid.CreateGrid(0, 3)
         self.grid.SetColLabelValue(0, "节点")
         self.grid.SetColLabelValue(1, "延迟(ms)")
+        self.grid.SetColLabelValue(2, "速度(MB/s)") 
         self.grid.SetRowLabelSize(0)  # Hide the row label column
         
         self.grid.EnableEditing(False)
@@ -487,6 +502,7 @@ class WebTestPanel(wx.Panel):
         # 绑定刷新/延迟按钮事件 与 表格双击事件（用于切换节点）
         self.refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh)
         self.delay_btn.Bind(wx.EVT_BUTTON, self.on_delay)
+        self.speed_btn.Bind(wx.EVT_BUTTON, self.on_speed) 
         self.grid.Bind(gridlib.EVT_GRID_CELL_LEFT_DCLICK, self.on_select_node)
 
         # Setup thread pool for delay checks
@@ -496,7 +512,11 @@ class WebTestPanel(wx.Panel):
         self.current_group_name = ""
         self.executor_wait_counter = 0  # 新增：初始化计数器
         self.tasks_to_run = 0         # 新增：用于存储需要运行的任务总数
-        
+
+        #self.speed_test_counter = 0
+        #self.speed_tasks_to_run = 0
+        self.original_node_before_speed_test = ""
+                
         self.load_secret_from_config()
 
 
@@ -506,6 +526,7 @@ class WebTestPanel(wx.Panel):
         """
         secret = self.clash_secret_text_ctrl.GetValue()
         testurl = self.clash_testurl_text_ctrl.GetValue()
+        speedurl = self.clash_speedurl_text_ctrl.GetValue()
 
         data = {}
         # Try to read the existing JSON file
@@ -521,6 +542,7 @@ class WebTestPanel(wx.Panel):
         # Update the specific values
         data["secret"] = secret
         data["testurl"] = testurl
+        data["speedurl"] = speedurl
         
         # Keep other existing values, or set to empty string if they don't exist
         # This is equivalent to the original code's line-based logic
@@ -552,9 +574,11 @@ class WebTestPanel(wx.Panel):
                     # Use .get() with a default value to safely access keys
                     secret = data.get("secret", "")
                     testurl = data.get("testurl", "")
+                    speedurl = data.get("speedurl", "")
                     
                     self.clash_secret_text_ctrl.SetValue(secret)
                     self.clash_testurl_text_ctrl.SetValue(testurl)
+                    self.clash_speedurl_text_ctrl.SetValue(speedurl)
                     
             except (IOError, json.JSONDecodeError) as e:
                 print(f"Error loading config: {e}")
@@ -673,11 +697,16 @@ class WebTestPanel(wx.Panel):
             self.grid.AppendRows(1)
             self.grid.SetCellValue(i, 0, node)
             self.grid.SetCellValue(i, 1, "")
+            # 【修改】: 清空速度列的旧数据
+            self.grid.SetCellValue(i, 2, "") 
             if node == current_node:
                 self.grid.SetCellTextColour(i, 0, wx.BLUE)
                 self.grid.SetCellFont(i, 0, wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.BOLD))
                 self.grid.SetCellTextColour(i, 1, wx.BLUE)
                 self.grid.SetCellFont(i, 1, wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.BOLD))
+                # 【修改】: 让速度列也高亮
+                self.grid.SetCellTextColour(i, 2, wx.BLUE)
+                self.grid.SetCellFont(i, 2, wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.BOLD))
         
         self.grid.AutoSizeColumns()
 
@@ -778,7 +807,149 @@ class WebTestPanel(wx.Panel):
         else:
             print(msg)
 
+# fastclash.py 文件中，将其添加到 WebTestPanel 类的末尾
+# 这是全新的、用于顺序测速的逻辑
 
+    def on_speed(self, event):
+        """为顺序测速启动一个后台线程"""
+        self.speed_btn.Disable()
+        self.log_message("开始按顺序测试所有节点速度...")
+
+        # 1. 保存测速开始前选中的节点
+        if self.current_group_name in self.proxy_data:
+            self.original_node_before_speed_test = self.proxy_data[self.current_group_name].get("now", "")
+        else:
+            self.original_node_before_speed_test = ""
+
+        # 2. 检查测速URL
+        speedurl = self.clash_speedurl_text_ctrl.GetValue()
+        if not speedurl:
+            self.speed_btn.Enable()
+            self.log_message("错误：测速URL为空，请先填写。")
+            return
+            
+        # 3. 获取需要测试的节点列表
+        nodes_to_test = []
+        num_rows = self.grid.GetNumberRows()
+        if num_rows == 0:
+            self.speed_btn.Enable()
+            self.log_message("没有节点可供测速。")
+            return
+        for row in range(num_rows):
+            nodes_to_test.append(self.grid.GetCellValue(row, 0))
+            self.grid.SetCellValue(row, 2, "") # 清空旧数据
+
+        # 4. 启动一个后台线程来执行顺序测速
+        #    将节点列表作为参数传给它，避免在后台线程直接操作UI控件
+        threading.Thread(target=self._run_sequential_speed_test, args=(nodes_to_test,)).start()
+
+# fastclash.py 文件中，将其添加到 WebTestPanel 类
+# 这是新的、带10秒总超时控制的测速逻辑
+
+    def _download_and_calculate_speed(self, speedurl, proxies, result_container):
+        """
+        [这是一个新的辅助方法]
+        在独立的子线程中执行实际的下载和速度计算，并将结果存入 result_container。
+        """
+        try:
+            start_time = time.time()
+            total_bytes = 0
+            # 注意：这里的timeout是requests自身的请求/读取超时，防止永久等待
+            with requests.get(speedurl, proxies=proxies, stream=True, timeout=15) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=1024*1024):
+                    # 检查总时间是否已超过10秒，如果超过则主动中断
+                    if time.time() - start_time > 10:
+                        raise TimeoutError("总下载时间超过10秒")
+                    total_bytes += len(chunk)
+            
+            end_time = time.time()
+            duration = end_time - start_time
+            
+            if duration > 0:
+                speed_mbps = (total_bytes / (1024 * 1024)) / duration
+                result_container['speed'] = f"{speed_mbps:.2f} "
+            else:
+                result_container['error'] = "计算错误"
+
+        except TimeoutError:
+            result_container['error'] = "超时"
+        except requests.exceptions.RequestException:
+            result_container['error'] = "下载错误"
+        except Exception:
+            result_container['error'] = "未知错误"
+
+    def _run_sequential_speed_test(self, nodes_to_test):
+        """
+        [这是重写后的主方法]
+        在后台线程运行，依次为每个节点启动一个带10秒超时的下载子线程。
+        """
+        secret = self.clash_secret_text_ctrl.GetValue()
+        speedurl = self.clash_speedurl_text_ctrl.GetValue()
+        group_name = self.current_group_name
+        
+        try:
+            for row, node_name in enumerate(nodes_to_test):
+                wx.CallAfter(self.update_grid_speed, row, "正在测速...")
+                
+                speed_str = "测试失败" # 默认值
+                try:
+                    clash_put(f"/proxies/{group_name}", {"name": node_name}, secret)
+                    proxies = {'http': 'http://127.0.0.1:7892', 'https': 'http://127.0.0.1:7892'}
+                    
+                    result_container = {} # 用于从子线程获取结果
+                    # 创建并启动下载子线程
+                    download_thread = threading.Thread(
+                        target=self._download_and_calculate_speed,
+                        args=(speedurl, proxies, result_container)
+                    )
+                    download_thread.start()
+                    
+                    # 等待下载子线程最多10秒
+                    download_thread.join(timeout=10.0)
+                    
+                    # 判断是否超时
+                    if download_thread.is_alive():
+                        speed_str = "超时"
+                    else:
+                        # 线程已结束，从容器中获取结果
+                        if 'speed' in result_container:
+                            speed_str = result_container['speed']
+                        elif 'error' in result_container:
+                            speed_str = result_container['error']
+
+                except Exception as e:
+                    speed_str = "切换节点失败"
+                    print(f"切换节点 {node_name} 失败: {e}")
+                
+                wx.CallAfter(self.update_grid_speed, row, speed_str)
+        
+        finally:
+            # 所有节点测试完毕后，执行收尾工作
+            wx.CallAfter(self._finalize_speed_test)
+
+    def update_grid_speed(self, row, speed_str):
+        """线程安全地更新表格中的速度值"""
+        if row < self.grid.GetNumberRows():
+            self.grid.SetCellValue(row, 2, speed_str)
+
+    def _finalize_speed_test(self):
+        """在主线程中执行所有测速结束后的UI操作"""
+        self.log_message("所有节点速度测试完成。")
+
+        # 恢复测速前选中的节点
+        if self.original_node_before_speed_test:
+            secret = self.clash_secret_text_ctrl.GetValue()
+            group_name = self.current_group_name
+            try:
+                clash_put(f"/proxies/{group_name}", {"name": self.original_node_before_speed_test}, secret)
+                self.proxy_data[group_name]["now"] = self.original_node_before_speed_test
+                #self._update_ui_with_nodes() # 刷新UI以高亮恢复的节点
+                self.log_message(f"已恢复节点为: {self.original_node_before_speed_test}")
+            except Exception as e:
+                self.log_message(f"恢复节点失败: {e}")
+
+        self.speed_btn.Enable() # 重新启用测速按钮
 
 # ========== New Combined Main Frame ==========
 
@@ -830,7 +1001,7 @@ class MyTaskBarIcon(wx.adv.TaskBarIcon):
 
 class CombinedFrame(wx.Frame):
     def __init__(self):
-        super().__init__(None, title="fastclash", size=(600, 550))
+        super().__init__(None, title="fastclash", size=(635, 550))
 
         self.SetIcon(get_logo_icon())
 
