@@ -4,7 +4,7 @@
 
 # 界面介绍
 
-![image](https://github.com/hansid/fastclash/blob/main/Snipaste_2025-09-21_08-37-48.png)\
+![image](https://github.com/hansid/fastclash/blob/main/Snipaste_2025-09-21_20-00-52.png)\
 ## config.yaml可以参考项目中的文件
 **主程序**\
 选择clash的exe文件\
