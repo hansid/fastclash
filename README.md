@@ -4,7 +4,7 @@
 
 # 界面介绍
 
-![image](https://github.com/hansid/fastclash/blob/main/Snipaste_2025-09-12_19-55-56.png)\
+![image](https://github.com/hansid/fastclash/blob/main/Snipaste_2025-09-21_08-37-48.png)\
 ## config.yaml可以参考项目中的文件
 **主程序**\
 选择clash的exe文件\
@@ -17,7 +17,9 @@
 **面板密码**\
 指config.yaml中设置的密码\
 **测试url**\
-用来测试各个节点的延迟（http://www.google-analytics.com/generate_204） \
+用来测试各个节点的延迟 http://www.google-analytics.com/generate_204 \
+**测速url**\
+用来测试各个节点的速度，建议采用10MB文件大小 https://speed.cloudflare.com/__down?bytes=10000000 \
 **次程序**\
 用来运行clash官方不支持的协议，例如naiveproxy，次程序暴露一个socks5端口，主程序clash分流后将流量给到次程序的sock5端口\
 **次程序运行命令**\
