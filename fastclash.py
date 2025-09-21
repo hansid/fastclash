@@ -464,16 +464,28 @@ class WebTestPanel(wx.Panel):
         vbox.Add(hbox_mode, 0, wx.EXPAND)
 
         # Buttons
+        # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.refresh_btn = wx.Button(self, label="刷新节点列表")
         self.delay_btn = wx.Button(self, label="刷新延迟")
-        self.speed_btn = wx.Button(self, label="测速")
+
+        # 为两个测速按钮创建一个垂直sizer
+        speed_vbox = wx.BoxSizer(wx.VERTICAL)
+        self.speed_single_btn = wx.Button(self, label="测速选中")
+        self.speed_all_btn = wx.Button(self, label="测速全部")
+
+        # 将两个按钮添加到垂直sizer中，让它们平分垂直空间
+        speed_vbox.Add(self.speed_single_btn, 1, wx.EXPAND | wx.BOTTOM, 2)
+        speed_vbox.Add(self.speed_all_btn, 1, wx.EXPAND | wx.TOP, 2)
+
+        # 设置按钮的最小尺寸
         self.refresh_btn.SetMinSize((-1, 50))
         self.delay_btn.SetMinSize((-1, 50))
-        self.speed_btn.SetMinSize((-1, 50))
-        btn_sizer.Add(self.refresh_btn, 0, wx.ALL, 5)
-        btn_sizer.Add(self.delay_btn, 0, wx.ALL, 5)
-        btn_sizer.Add(self.speed_btn, 0, wx.ALL, 5)
+
+        # 将所有按钮和sizer添加到主按钮sizer中
+        btn_sizer.Add(self.refresh_btn, 1, wx.EXPAND | wx.ALL, 5)
+        btn_sizer.Add(self.delay_btn, 1, wx.EXPAND | wx.ALL, 5)
+        btn_sizer.Add(speed_vbox, 1, wx.EXPAND | wx.ALL, 5)
         vbox.Add(btn_sizer, 0, wx.EXPAND)
 
         # Grid
@@ -502,7 +514,8 @@ class WebTestPanel(wx.Panel):
         # 绑定刷新/延迟按钮事件 与 表格双击事件（用于切换节点）
         self.refresh_btn.Bind(wx.EVT_BUTTON, self.on_refresh)
         self.delay_btn.Bind(wx.EVT_BUTTON, self.on_delay)
-        self.speed_btn.Bind(wx.EVT_BUTTON, self.on_speed) 
+        self.speed_single_btn.Bind(wx.EVT_BUTTON, self.on_speed_single_node)
+        self.speed_all_btn.Bind(wx.EVT_BUTTON, self.on_speed_all_nodes)
         self.grid.Bind(gridlib.EVT_GRID_CELL_LEFT_DCLICK, self.on_select_node)
 
         # Setup thread pool for delay checks
@@ -518,7 +531,16 @@ class WebTestPanel(wx.Panel):
         self.original_node_before_speed_test = ""
                 
         self.load_secret_from_config()
-
+        
+        
+    def _set_speed_buttons_state(self, enabled=True):
+        """辅助方法：统一启用或禁用两个测速按钮。"""
+        if enabled:
+            self.speed_single_btn.Enable()
+            self.speed_all_btn.Enable()
+        else:
+            self.speed_single_btn.Disable()
+            self.speed_all_btn.Disable()
 
     def on_path_change(self, event):
         """
@@ -810,9 +832,9 @@ class WebTestPanel(wx.Panel):
 # fastclash.py 文件中，将其添加到 WebTestPanel 类的末尾
 # 这是全新的、用于顺序测速的逻辑
 
-    def on_speed(self, event):
+    def on_speed_all_nodes(self, event):
         """为顺序测速启动一个后台线程"""
-        self.speed_btn.Disable()
+        self._set_speed_buttons_state(False)
         self.log_message("开始按顺序测试所有节点速度...")
 
         # 1. 保存测速开始前选中的节点
@@ -824,7 +846,7 @@ class WebTestPanel(wx.Panel):
         # 2. 检查测速URL
         speedurl = self.clash_speedurl_text_ctrl.GetValue()
         if not speedurl:
-            self.speed_btn.Enable()
+            self._set_speed_buttons_state(True)
             self.log_message("错误：测速URL为空，请先填写。")
             return
             
@@ -832,7 +854,7 @@ class WebTestPanel(wx.Panel):
         nodes_to_test = []
         num_rows = self.grid.GetNumberRows()
         if num_rows == 0:
-            self.speed_btn.Enable()
+            self._set_speed_buttons_state(True)
             self.log_message("没有节点可供测速。")
             return
         for row in range(num_rows):
@@ -949,7 +971,89 @@ class WebTestPanel(wx.Panel):
             except Exception as e:
                 self.log_message(f"恢复节点失败: {e}")
 
-        self.speed_btn.Enable() # 重新启用测速按钮
+        self._set_speed_buttons_state(True) # 重新启用测速按钮
+
+    def on_speed_single_node(self, event):
+        """【单击触发】为当前选中的节点启动一个后台测速线程"""
+        self._set_speed_buttons_state(False)
+
+        # 1. 获取当前选中的节点
+        if not self.current_group_name or self.current_group_name not in self.proxy_data:
+            self.log_message("错误：未选择代理组或代理组数据无效。")
+            self._set_speed_buttons_state(True)
+            return
+
+        current_node = self.proxy_data[self.current_group_name].get("now", "")
+        if not current_node:
+            self.log_message("错误：当前代理组未选择任何节点。")
+            self._set_speed_buttons_state(True)
+            return
+
+        # 2. 检查测速URL
+        speedurl = self.clash_speedurl_text_ctrl.GetValue()
+        if not speedurl:
+            self._set_speed_buttons_state(True)
+            self.log_message("错误：测速URL为空，请先填写。")
+            return
+
+        # 3. 在表格中找到该节点对应的行
+        node_row = -1
+        for row in range(self.grid.GetNumberRows()):
+            if self.grid.GetCellValue(row, 0) == current_node:
+                node_row = row
+                break
+        
+        if node_row == -1:
+            self.log_message(f"错误：在表格中未找到当前节点 {current_node}。")
+            self._set_speed_buttons_state(True)
+            return
+
+        # 4. 准备测速并启动后台线程
+        self.log_message(f"开始测试当前节点: {current_node}...")
+        self.grid.SetCellValue(node_row, 2, "") # 清空旧数据
+        threading.Thread(target=self._run_single_node_speed_test, args=(node_row, current_node)).start()
+
+    def _run_single_node_speed_test(self, row, node_name):
+        """
+        在后台线程为单个节点测速。
+        此方法不切换节点，因为它假定要测试的已经是当前节点。
+        """
+        speedurl = self.clash_speedurl_text_ctrl.GetValue()
+        
+        try:
+            wx.CallAfter(self.update_grid_speed, row, "正在测速...")
+            
+            speed_str = "测试失败" # 默认值
+            try:
+                proxies = {'http': 'http://127.0.0.1:7892', 'https': 'http://127.0.0.1:7892'}
+                
+                result_container = {} # 用于从子线程获取结果
+                download_thread = threading.Thread(
+                    target=self._download_and_calculate_speed,
+                    args=(speedurl, proxies, result_container)
+                )
+                download_thread.start()
+                download_thread.join(timeout=10.0) # 等待下载子线程最多10秒
+                
+                if download_thread.is_alive():
+                    speed_str = "超时"
+                else:
+                    if 'speed' in result_container:
+                        speed_str = result_container['speed']
+                    elif 'error' in result_container:
+                        speed_str = result_container['error']
+
+            except Exception as e:
+                speed_str = "测试异常"
+                print(f"测试节点 {node_name} 时发生异常: {e}")
+            
+            wx.CallAfter(self.update_grid_speed, row, speed_str)
+        
+        finally:
+            # 单个节点测试完毕后
+            wx.CallAfter(self.log_message, f"节点 {node_name} 速度测试完成。")
+            wx.CallAfter(self._set_speed_buttons_state, True)
+
 
 # ========== New Combined Main Frame ==========
 
